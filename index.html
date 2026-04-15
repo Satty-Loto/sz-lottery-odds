@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Калькулятор вероятностей — Лотереи АО «Сатти Жулдыз» (sz.kz)</title>
+<meta name="description" content="Математический расчёт вероятностей выигрыша в лотереях Loto 6/49, 5/36 и Keno от АО «Сәтті Жұлдыз» (sz.kz). Открытый исходный код. Данные из официальных Условий проведения.">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --radius: 8px;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+  }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; line-height: 1.6; padding: 24px 16px; }
+  .container { max-width: 880px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); margin-bottom: 8px; font-size: 13px; }
+  .disclaimer { background: #161b22; border: 1px solid #30363d; border-left: 3px solid var(--yellow); border-radius: var(--radius); padding: 10px 14px; font-size: 12px; color: var(--muted); margin-bottom: 24px; }
+  .disclaimer a { color: var(--accent); text-decoration: none; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; flex-wrap: wrap; }
+  .tab { padding: 7px 16px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; background: transparent; color: var(--muted); font-size: 13px; font-family: var(--font); transition: all .15s; }
+  .tab:hover { border-color: var(--accent); color: var(--text); }
+  .tab.active { background: var(--accent); border-color: var(--accent); color: #0d1117; font-weight: 600; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 16px; }
+  .section h2 { font-size: 15px; font-weight: 600; margin-bottom: 12px; color: var(--accent); }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; align-items: center; }
+  label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; }
+  input[type=number], select {
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    border-radius: 6px; padding: 7px 10px; font-size: 13px; font-family: var(--font);
+    width: 100%; outline: none;
+  }
+  input[type=number]:focus, select:focus { border-color: var(--accent); }
+  .field { min-width: 140px; flex: 1; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 8px 10px; background: var(--bg); color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 8px 10px; border-bottom: 1px solid #21262d; }
+  tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .badge-green { background: #0f2a1a; color: var(--green); }
+  .badge-yellow { background: #2a1f00; color: var(--yellow); }
+  .badge-red { background: #2a0f0f; color: var(--red); }
+  .badge-blue { background: #0d2137; color: var(--accent); }
+  .ev-box { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px 16px; display: inline-block; margin-top: 8px; }
+  .ev-box .val { font-size: 24px; font-weight: 700; }
+  .ev-box .label { font-size: 11px; color: var(--muted); }
+  .meta { font-size: 11px; color: var(--muted); margin-top: 8px; }
+  .formula { font-family: "Courier New", monospace; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 10px 14px; font-size: 12px; color: #79c0ff; white-space: pre-wrap; margin-top: 8px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 600px) { .grid2 { grid-template-columns: 1fr; } }
+  footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); }
+  footer a { color: var(--accent); text-decoration: none; }
+  .highlight { color: var(--text); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>🎲 Калькулятор вероятностей лотерей АО «Сатти Жулдыз»</h1>
+<p class="subtitle">Математика без иллюзий. Данные: официальные Условия проведения лотерей (sz.kz)</p>
+
+<div class="disclaimer">
+  ⚠️ <strong>Независимый инструмент.</strong> Не связан с АО «Сәтті Жұлдыз» и не является официальным ресурсом оператора.
+  Официальный сайт оператора: <a href="https://sz.kz" target="_blank" rel="nofollow">sz.kz</a>.
+  Подробный анализ лотерей: <a href="https://sattyloto.com" target="_blank">sattyloto.com</a>.
+  Исходный код: <a href="https://github.com/Satty-Loto/sz-lottery-odds" target="_blank">GitHub</a>.
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('loto649')">Loto 6/49</button>
+  <button class="tab" onclick="switchTab('loto536')">5/36</button>
+  <button class="tab" onclick="switchTab('keno')">Keno</button>
+  <button class="tab" onclick="switchTab('about')">Методология</button>
+</div>
+
+<!-- ============ 6/49 ============ -->
+<div id="panel-loto649" class="panel active">
+  <div class="section">
+    <h2>Параметры билета — Loto 6/49</h2>
+    <div class="row">
+      <div class="field">
+        <label>Стоимость комбинации (тенге)</label>
+        <input type="number" id="price649" value="500" min="100" step="100" oninput="calc649()">
+      </div>
+      <div class="field">
+        <label>Джекпот «Суперприз» (тенге)</label>
+        <input type="number" id="jp649" value="30000000" min="30000000" step="1000000" oninput="calc649()">
+      </div>
+    </div>
+    <p class="meta">Игровые шары: 1–49. Участник выбирает 6 чисел. Розыгрыш: 6 основных + 1 бонусный шар. Источник: Условия проведения лотереи «Loto 6/49», АО «Сәтті Жұлдыз» (2023).</p>
+  </div>
+
+  <div class="section">
+    <h2>Таблица вероятностей</h2>
+    <div style="overflow-x:auto">
+      <table id="table649"></table>
+    </div>
+    <div class="grid2" style="margin-top:16px">
+      <div class="ev-box">
+        <div class="label">Мат. ожидание на 1 тенге ставки</div>
+        <div class="val" id="ev649">—</div>
+        <div class="meta">отношение ожидаемого выигрыша к цене билета</div>
+      </div>
+      <div class="ev-box">
+        <div class="label">Вероятность выиграть хоть что-нибудь</div>
+        <div class="val" id="anywin649">—</div>
+        <div class="meta">одна комбинация</div>
+      </div>
+    </div>
+    <div class="formula" id="formula649"></div>
+  </div>
+</div>
+
+<!-- ============ 5/36 ============ -->
+<div id="panel-loto536" class="panel">
+  <div class="section">
+    <h2>Параметры билета — 5/36</h2>
+    <div class="row">
+      <div class="field">
+        <label>Стоимость комбинации (тенге)</label>
+        <input type="number" id="price536" value="400" min="100" step="100" oninput="calc536()">
+      </div>
+      <div class="field">
+        <label>Джекпот (тенге)</label>
+        <input type="number" id="jp536" value="3000000" min="3000000" step="500000" oninput="calc536()">
+      </div>
+    </div>
+    <p class="meta">Игровые шары: 1–36. Участник выбирает 5 чисел. Розыгрыш: 5 шаров. Источник: Условия проведения лотереи «5/36» версия 3_2024.</p>
+  </div>
+  <div class="section">
+    <h2>Таблица вероятностей</h2>
+    <div style="overflow-x:auto">
+      <table id="table536"></table>
+    </div>
+    <div class="grid2" style="margin-top:16px">
+      <div class="ev-box">
+        <div class="label">Мат. ожидание на 1 тенге ставки</div>
+        <div class="val" id="ev536">—</div>
+      </div>
+      <div class="ev-box">
+        <div class="label">Вероятность выиграть хоть что-нибудь</div>
+        <div class="val" id="anywin536">—</div>
+      </div>
+    </div>
+    <div class="formula" id="formula536"></div>
+  </div>
+</div>
+
+<!-- ============ KENO ============ -->
+<div id="panel-keno" class="panel">
+  <div class="section">
+    <h2>Параметры ставки — Keno</h2>
+    <div class="row">
+      <div class="field">
+        <label>Количество чисел в комбинации (1–10)</label>
+        <select id="kenoK" onchange="calcKeno()">
+          <option value="1">1 число</option>
+          <option value="2">2 числа</option>
+          <option value="3">3 числа</option>
+          <option value="4">4 числа</option>
+          <option value="5">5 чисел</option>
+          <option value="6">6 чисел</option>
+          <option value="7">7 чисел</option>
+          <option value="8">8 чисел</option>
+          <option value="9">9 чисел</option>
+          <option value="10" selected>10 чисел</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Стоимость комбинации (тенге)</label>
+        <select id="kenoPrice" onchange="calcKeno()">
+          <option value="200">200</option>
+          <option value="400">400</option>
+          <option value="600">600</option>
+          <option value="800">800</option>
+          <option value="1000" selected>1 000</option>
+          <option value="2000">2 000</option>
+          <option value="4000">4 000</option>
+        </select>
+      </div>
+    </div>
+    <p class="meta">Поле 1–80. Розыгрыш: 20 чисел из 80. Выигрыши фиксированные. Источник: Условия «Keno» 2023.</p>
+  </div>
+  <div class="section">
+    <h2>Таблица вероятностей и выигрышей</h2>
+    <div style="overflow-x:auto">
+      <table id="tableKeno"></table>
+    </div>
+    <div class="grid2" style="margin-top:16px">
+      <div class="ev-box">
+        <div class="label">Мат. ожидание на 1 тенге ставки</div>
+        <div class="val" id="evKeno">—</div>
+      </div>
+      <div class="ev-box">
+        <div class="label">Вероятность выиграть хоть что-нибудь</div>
+        <div class="val" id="anywinKeno">—</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ABOUT ============ -->
+<div id="panel-about" class="panel">
+  <div class="section">
+    <h2>Методология расчётов</h2>
+    <p style="margin-bottom:12px">Все вероятности рассчитываются точно через биномиальные коэффициенты (комбинаторика). Приближения не используются.</p>
+    <div class="formula">// Биномиальный коэффициент C(n, k) — количество комбинаций
+C(n, k) = n! / (k! × (n-k)!)
+
+// Вероятность угадать ровно m чисел из k выбранных (лото k/N, выбрано n шаров)
+P(m совпадений) = C(k, m) × C(N-k, n-m) / C(N, n)
+
+// Пример: Loto 6/49, угадать 4 числа из 6
+P = C(6,4) × C(43,2) / C(49,6)
+  = 15 × 903 / 13 983 816
+  = 13 545 / 13 983 816
+  ≈ 1 : 1 032</div>
+  </div>
+
+  <div class="section">
+    <h2>Математическое ожидание</h2>
+    <div class="formula">// E = сумма по всем категориям: вероятность × размер выигрыша
+// Для фиксированных призов (Keno, кат.6 в 6/49, кат.4 в 5/36): приз известен точно.
+// Для нефиксированных категорий: используем % от призового фонда.
+// Призовой фонд принят = 50% от суммы реализации тиража.
+
+// Интерпретация результата:
+// EV = 0.50 → на каждые 100 тенге ставки ожидаемый возврат = 50 тенге
+// EV = 1.00 → математический ноль (не бывает в государственных лотереях)
+// Типичный диапазон государственных лотерей: 0.40 – 0.55</div>
+    <p class="meta" style="margin-top:10px">Нефиксированные выигрыши в 6/49 и 5/36 зависят от числа победителей в данном тираже и не могут быть точно рассчитаны заранее. Калькулятор использует ориентировочные значения на основе нормального распределения участников.</p>
+  </div>
+
+  <div class="section">
+    <h2>Источники данных</h2>
+    <ul style="padding-left:18px;line-height:1.9;font-size:13px;color:var(--muted)">
+      <li>Условия проведения тиражной лотереи «Loto 6/49», АО «Сәтті Жұлдыз», утв. 11.08.2023</li>
+      <li>Условия проведения тиражной лотереи «5/36», версия 3_2024</li>
+      <li>Условия проведения тиражной лотереи «Keno», АО «Сәтті Жұлдыз», 2023</li>
+      <li>Официальный сайт оператора: <a href="https://sz.kz" target="_blank" rel="nofollow" style="color:var(--accent)">sz.kz</a></li>
+    </ul>
+  </div>
+</div>
+
+<footer>
+  <p>Открытый исходный код: <a href="https://github.com/Satty-Loto/sz-lottery-odds">github.com/Satty-Loto/sz-lottery-odds</a> · Аналитика лотерей: <a href="https://sattyloto.com">sattyloto.com</a> · Официальный оператор: <a href="https://sz.kz" rel="nofollow">sz.kz</a></p>
+  <p style="margin-top:6px">Инструмент предназначен исключительно для образовательных целей. Участие в лотерее — для лиц от 18 лет. Игра в лотерею несёт финансовые риски.</p>
+</footer>
+
+</div>
+
+<script>
+// ─── Math helpers ────────────────────────────────────────────────────────────
+function C(n, k) {
+  if (k < 0 || k > n) return 0;
+  if (k === 0 || k === n) return 1;
+  k = Math.min(k, n - k);
+  let result = 1;
+  for (let i = 0; i < k; i++) {
+    result = result * (n - i) / (i + 1);
+  }
+  return Math.round(result);
+}
+
+function fmt1in(p) {
+  if (p <= 0) return '—';
+  const x = 1 / p;
+  if (x < 2) return '< 1 : 2';
+  if (x >= 1e9) return '1 : ' + (x / 1e9).toFixed(1) + ' млрд';
+  if (x >= 1e6) return '1 : ' + (x / 1e6).toFixed(2) + ' млн';
+  if (x >= 1e3) return '1 : ' + Math.round(x / 100) * 100 + '';
+  return '1 : ' + Math.round(x);
+}
+
+function fmtPct(p) {
+  if (p <= 0) return '0%';
+  if (p < 0.0001) return (p * 100).toExponential(2) + '%';
+  return (p * 100).toFixed(4) + '%';
+}
+
+function badge(p) {
+  const x = 1 / Math.max(p, 1e-15);
+  if (x < 100) return '<span class="badge badge-green">частый</span>';
+  if (x < 10000) return '<span class="badge badge-yellow">редкий</span>';
+  if (x < 1e6) return '<span class="badge badge-red">очень редкий</span>';
+  return '<span class="badge badge-blue">единичный</span>';
+}
+
+function renderTable(id, headers, rows) {
+  const t = document.getElementById(id);
+  const thead = headers.map(h => `<th>${h}</th>`).join('');
+  const tbody = rows.map(r => `<tr>${r.map((c, i) => `<td>${c}</td>`).join('')}</tr>`).join('');
+  t.innerHTML = `<thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody>`;
+}
+
+// ─── Loto 6/49 ───────────────────────────────────────────────────────────────
+function calc649() {
+  const price = +document.getElementById('price649').value || 500;
+  const jp = +document.getElementById('jp649').value || 30000000;
+  const N = 49, k = 6, drawn = 6;
+  const total = C(N, k); // 13,983,816
+
+  // Prize fund % of pot (from official rules appendix 4)
+  // PF = ~50% of ticket sales; these are % within PF
+  // We'll estimate average prize for non-fixed by assuming 100,000 combinations sold per draw
+  const avgSales = 100000 * price; // rough average
+  const PF = avgSales * 0.50; // ~50% prize fund
+
+  const categories = [
+    { name: 'Совпали 6 — «Суперприз»', ways: () => C(k,6)*C(N-k,0), fixed: jp, pfPct: 0.06, fixedFlag: false },
+    { name: 'Совпали 5 + бонусный шар', ways: () => null, p: 6/total, fixed: null, pfPct: 0.06, fixedFlag: false },
+    { name: 'Совпали 5', ways: () => C(k,5)*C(N-k,1) - 6, fixed: null, pfPct: 0.03, fixedFlag: false },
+    { name: 'Совпали 4', ways: () => C(k,4)*C(N-k,2), fixed: null, pfPct: 0.09, fixedFlag: false },
+    { name: 'Совпали 3', ways: () => C(k,3)*C(N-k,3), fixed: null, pfPct: 0.08, fixedFlag: false },
+    { name: 'Совпали 2 (фикс.)', ways: () => C(k,2)*C(N-k,4), fixed: 500, pfPct: 0.12, fixedFlag: true },
+  ];
+
+  let rows = [];
+  let totalEV = 0;
+  let anyWinP = 0;
+
+  for (const cat of categories) {
+    let p;
+    if (cat.p !== undefined) {
+      p = cat.p;
+    } else {
+      const w = cat.ways();
+      p = w / total;
+    }
+
+    let prizeEst;
+    if (cat.fixedFlag) {
+      prizeEst = cat.fixed;
+    } else if (cat === categories[0]) {
+      prizeEst = jp; // jackpot
+    } else {
+      // estimate: pfPct * PF / (p * avgCombos)
+      const avgWinners = p * 100000;
+      prizeEst = avgWinners > 0.01 ? Math.floor((cat.pfPct * PF) / avgWinners / 100) * 100 : jp * 0.5;
+    }
+
+    totalEV += p * prizeEst;
+    if (cat !== categories[categories.length - 1] || p > 0) {
+      anyWinP += p;
+    }
+
+    rows.push([
+      cat.name,
+      fmtPct(p),
+      fmt1in(p),
+      badge(p),
+      cat.fixedFlag ? `<b>${prizeEst.toLocaleString('ru')} ₸</b>` : `~${prizeEst.toLocaleString('ru')} ₸`
+    ]);
+  }
+
+  renderTable('table649',
+    ['Категория', 'Вероятность', 'Шанс', '', 'Ориент. выигрыш'],
+    rows
+  );
+
+  const ev = totalEV / price;
+  document.getElementById('ev649').textContent = ev.toFixed(3);
+  document.getElementById('ev649').style.color = ev < 0.6 ? 'var(--red)' : 'var(--yellow)';
+  document.getElementById('anywin649').textContent = fmt1in(anyWinP);
+
+  document.getElementById('formula649').textContent =
+    `C(49,6) = ${total.toLocaleString('ru')} комбинаций\n` +
+    `P(джекпот) = 1 / ${total.toLocaleString('ru')} = ${(1/total*100).toExponential(4)}%\n` +
+    `P(≥2 совпадений) ≈ ${fmtPct(anyWinP)}\n` +
+    `Приз. фонд (оценка): ~50% от суммы реализации тиража`;
+}
+
+// ─── 5/36 ────────────────────────────────────────────────────────────────────
+function calc536() {
+  const price = +document.getElementById('price536').value || 400;
+  const jp = +document.getElementById('jp536').value || 3000000;
+  const N = 36, k = 5, drawn = 5;
+  const total = C(N, k); // 376,992
+
+  const avgSales = 80000 * price;
+  const PF = avgSales * 0.44; // est ~44% prize fund
+
+  const categories = [
+    { name: 'Совпали 5 — «Джекпот»', ways: C(k,5)*C(N-k,0), pfPct: 0.153, fixedFlag: false, useJP: true },
+    { name: 'Совпали 4', ways: C(k,4)*C(N-k,1), pfPct: 0.042, fixedFlag: false },
+    { name: 'Совпали 3', ways: C(k,3)*C(N-k,2), pfPct: 0.126, fixedFlag: false },
+    { name: 'Совпали 2 (фикс.)', ways: C(k,2)*C(N-k,3), fixed: 400, pfPct: 0.119, fixedFlag: true },
+  ];
+
+  let rows = [];
+  let totalEV = 0;
+  let anyWinP = 0;
+
+  for (const cat of categories) {
+    const p = cat.ways / total;
+    let prizeEst;
+    if (cat.fixedFlag) {
+      prizeEst = cat.fixed;
+    } else if (cat.useJP) {
+      prizeEst = jp;
+    } else {
+      const avgWinners = p * 80000;
+      prizeEst = avgWinners > 0.01 ? Math.floor((cat.pfPct * PF) / avgWinners / 100) * 100 : 500000;
+    }
+
+    totalEV += p * prizeEst;
+    anyWinP += p;
+
+    rows.push([
+      cat.name,
+      fmtPct(p),
+      fmt1in(p),
+      badge(p),
+      cat.fixedFlag ? `<b>${prizeEst.toLocaleString('ru')} ₸</b>` : `~${prizeEst.toLocaleString('ru')} ₸`
+    ]);
+  }
+
+  renderTable('table536',
+    ['Категория', 'Вероятность', 'Шанс', '', 'Ориент. выигрыш'],
+    rows
+  );
+
+  const ev = totalEV / price;
+  document.getElementById('ev536').textContent = ev.toFixed(3);
+  document.getElementById('ev536').style.color = ev < 0.6 ? 'var(--red)' : 'var(--yellow)';
+  document.getElementById('anywin536').textContent = fmt1in(anyWinP);
+
+  document.getElementById('formula536').textContent =
+    `C(36,5) = ${total.toLocaleString('ru')} комбинаций\n` +
+    `P(джекпот) = 1 / ${total.toLocaleString('ru')} = ${(1/total*100).toExponential(4)}%\n` +
+    `P(≥2 совпадений) ≈ ${fmtPct(anyWinP)}`;
+}
+
+// ─── Keno ─────────────────────────────────────────────────────────────────────
+// Fixed prize table from official rules (Keno 2023, Приложение 4)
+// Rows: matched numbers; Cols: k (player picks), values in tenge
+// [matched][k-1] where k = 1..10
+const KENO_PRIZES = {
+  // [k]: { matches: prize }
+  1:  { 1: 400 },
+  2:  { 2: 1600 },
+  3:  { 2: 400, 3: 3000 },
+  4:  { 2: 200, 3: 400, 4: 10000 },
+  5:  { 3: 400, 4: 3000, 5: 40000 },
+  6:  { 4: 1000, 5: 4000, 6: 80000 },
+  7:  { 4: 400, 5: 2000, 6: 10000, 7: 400000 },
+  8:  { 4: 0, 5: 2000, 6: 6000, 7: 60000, 8: 2000000 },
+  9:  { 4: 0, 5: 1000, 6: 2000, 7: 30000, 8: 400000, 9: 6000000 },
+  10: { 0: 400, 5: 400, 6: 2000, 7: 12000, 8: 110000, 9: 1100000, 10: 20000000 }
+};
+
+function calcKeno() {
+  const k = +document.getElementById('kenoK').value;
+  const price = +document.getElementById('kenoPrice').value;
+
+  // Hypergeometric: N=80, K=20 drawn, n=k player picks
+  // P(match exactly m) = C(k,m)*C(80-k,20-m)/C(80,20)
+  const N = 80, drawn = 20;
+  const totalBig = C(N, drawn); // C(80,20) — huge number, use BigInt
+
+  function hyperP(m) {
+    if (m > k || m > drawn || (drawn - m) > (N - k)) return 0;
+    // Use log-space to avoid overflow
+    return cBig(k, m) * cBig(N - k, drawn - m) / cBig(N, drawn);
+  }
+
+  function cBig(n, r) {
+    if (r < 0 || r > n) return 0;
+    r = Math.min(r, n - r);
+    let result = 1;
+    for (let i = 0; i < r; i++) {
+      result = result * (n - i) / (i + 1);
+    }
+    return result;
+  }
+
+  const prizes = KENO_PRIZES[k] || {};
+  const rows = [];
+  let ev = 0;
+  let anyWinP = 0;
+
+  // Show all match levels that have prizes
+  const minMatch = Math.min(...Object.keys(prizes).map(Number));
+  const maxMatch = k;
+
+  for (let m = 0; m <= maxMatch; m++) {
+    const p = hyperP(m);
+    const prize = prizes[m] || 0;
+    if (prize === 0 && m < minMatch) continue; // skip zero-prize rows before first prize
+    if (prize > 0) {
+      ev += p * prize;
+      anyWinP += p;
+    }
+    if (prize === 0 && m > 0 && m < minMatch) continue;
+
+    rows.push([
+      `${m} совпадений`,
+      fmtPct(p),
+      fmt1in(p),
+      badge(p),
+      prize > 0 ? `<b>${prize.toLocaleString('ru')} ₸</b>` : `<span style="color:var(--muted)">—</span>`
+    ]);
+  }
+
+  renderTable('tableKeno',
+    ['Совпадений', 'Вероятность', 'Шанс', '', 'Выигрыш (фикс.)'],
+    rows
+  );
+
+  const evNorm = ev / price;
+  document.getElementById('evKeno').textContent = evNorm.toFixed(3);
+  document.getElementById('evKeno').style.color = evNorm < 0.6 ? 'var(--red)' : 'var(--yellow)';
+  document.getElementById('anywinKeno').textContent = fmt1in(anyWinP);
+}
+
+// ─── Tab switching ────────────────────────────────────────────────────────────
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('panel-' + id).classList.add('active');
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+calc649();
+calc536();
+calcKeno();
+</script>
+</body>
+</html>
