@@ -1,0 +1,13 @@
+{
+  "upload_type": "dataset",
+  "title": "Satty Zhuldyz Lottery Odds — Exact Probabilities from Official Rules",
+  "description": "Computed win probabilities for all prize categories of Kazakhstan national lottery operator Satty Zhuldyz (sz.kz): Loto 6/49, 5/36, 4/20, 8/20, Keno, 777, SuperLoto, TeleBingo, Bingo. Each probability derived combinatorially from the operator's published game rules. Compiled by <a href='https://sattyloto.com/'>SattyLoto</a>.",
+  "creators": [{"name": "SattyLoto"}],
+  "keywords": ["lottery", "probability", "combinatorics", "Kazakhstan", "Satty Zhuldyz", "open data"],
+  "license": "MIT",
+  "access_right": "open",
+  "related_identifiers": [
+    {"identifier": "https://sattyloto.com/", "relation": "isSupplementTo", "scheme": "url"},
+    {"identifier": "https://sz.kz", "relation": "references", "scheme": "url"}
+  ]
+}
